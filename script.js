@@ -219,6 +219,16 @@ const FIREBASE_CONFIG = {
     $('btnJoin').disabled = true;
     let abortReason = null;
     try {
+      // Force a real round-trip to the server first. This avoids a race where a
+      // freshly-loaded tab runs the transaction below against an empty local
+      // cache (before its connection to Firebase is fully established) and
+      // wrongly concludes the room doesn't exist.
+      const precheck = await roomRef(code).once('value');
+      if (!precheck.exists()) {
+        setError('No room found with that code.');
+        return;
+      }
+
       const result = await roomRef(code).transaction((r) => {
         if (r === null) { abortReason = 'NOT_FOUND'; return; }
         if (r.players && r.players[myId]) return r; // already a member — treat as rejoin
