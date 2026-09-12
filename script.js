@@ -223,7 +223,9 @@ const FIREBASE_CONFIG = {
       // freshly-loaded tab runs the transaction below against an empty local
       // cache (before its connection to Firebase is fully established) and
       // wrongly concludes the room doesn't exist.
+      console.log('[join debug] looking up path:', 'rooms/' + code, '| databaseURL:', FIREBASE_CONFIG.databaseURL);
       const precheck = await roomRef(code).once('value');
+      console.log('[join debug] exists:', precheck.exists(), '| value:', precheck.val());
       if (!precheck.exists()) {
         setError('No room found with that code.');
         return;
