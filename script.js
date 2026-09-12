@@ -217,7 +217,6 @@ const FIREBASE_CONFIG = {
     setError('');
     localStorage.setItem('cr_name', name);
     $('btnJoin').disabled = true;
-    let abortReason = null;
     try {
       // Force a real round-trip to the server first. This avoids a race where a
       // freshly-loaded tab runs the transaction below against an empty local
@@ -231,26 +230,21 @@ const FIREBASE_CONFIG = {
         return;
       }
 
-      const result = await roomRef(code).transaction((r) => {
-        if (r === null) { abortReason = 'NOT_FOUND'; return; }
-        if (r.players && r.players[myId]) return r; // already a member — treat as rejoin
-        if (r.started) { abortReason = 'STARTED'; return; }
-        const count = (r.turnOrder || []).length;
-        if (count >= 6) { abortReason = 'FULL'; return; }
-        const usedColors = new Set(Object.values(r.players || {}).map((p) => p.colorIdx));
+      // Use the data we just fetched directly instead of a second transaction() call.
+      // (Firebase's transaction() can spuriously see a fresh path as "null" on its
+      // very first touch, even when the data genuinely exists — using a plain
+      // read-then-write here avoids that quirk entirely.)
+      const roomData = precheck.val();
+      if (!(roomData.players && roomData.players[myId])) {
+        if (roomData.started) { setError('That game has already started.'); return; }
+        const existingOrder = roomData.turnOrder || [];
+        if (existingOrder.length >= 6) { setError('That room is full (6 players max).'); return; }
+        const usedColors = new Set(Object.values(roomData.players || {}).map((p) => p.colorIdx));
         let colorIdx = 0; while (usedColors.has(colorIdx) && colorIdx < 5) colorIdx++;
-        r.players = r.players || {};
-        r.players[myId] = { name, colorIdx, alive: true, movesMade: 0, connected: true };
-        r.turnOrder = r.turnOrder || [];
-        r.turnOrder.push(myId);
-        return r;
-      });
-      if (!result.committed) {
-        if (abortReason === 'NOT_FOUND') setError('No room found with that code.');
-        else if (abortReason === 'STARTED') setError('That game has already started.');
-        else if (abortReason === 'FULL') setError('That room is full (6 players max).');
-        else setError('Could not join that room.');
-        return;
+        const updates = {};
+        updates['players/' + myId] = { name, colorIdx, alive: true, movesMade: 0, connected: true };
+        updates['turnOrder'] = [...existingOrder, myId];
+        await roomRef(code).update(updates);
       }
       subscribeRoom(code);
     } catch (e) {
