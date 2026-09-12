@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Chain Reaction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+
+<!-- Firebase (free real-time database) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</head>
+<body>
+<div class="field"></div>
+<canvas id="confettiCanvas"></canvas>
+<div class="toast" id="toast"></div>
+
+<div class="app">
+
+  <!-- HOME SCREEN -->
+  <div class="screen active" id="screen-home">
+    <div class="atom-hero">
+      <div class="ring r1"><i></i></div>
+      <div class="ring r2"><i></i></div>
+      <div class="ring r3"><i></i></div>
+      <div class="core"></div>
+    </div>
+    <h1 class="brand">Chain Reaction</h1>
+    <p class="tag">Fill a cell past its limit and it explodes, flipping every neighbor to your color. Last player with orbs on the board wins. Play live with friends anywhere — just share a room code.</p>
+
+    <div class="panel" style="margin-top:24px;">
+      <div class="field-group">
+        <label for="nameInput">Your name</label>
+        <input type="text" id="nameInput" maxlength="16" placeholder="e.g. Sam" autocomplete="off">
+      </div>
+
+      <div class="row-gap">
+        <button class="btn btn-primary" id="btnCreate">Create a room</button>
+      </div>
+
+      <div class="or-divider">OR JOIN A FRIEND'S ROOM</div>
+
+      <div class="field-group">
+        <label for="codeInput">Room code</label>
+        <input type="text" class="code-input" id="codeInput" maxlength="4" placeholder="ABCD" autocomplete="off">
+      </div>
+      <button class="btn btn-ghost" id="btnJoin">Join room</button>
+      <div class="error-msg" id="homeError"></div>
+    </div>
+    <div class="conn-status" id="connStatus">Connecting…</div>
+  </div>
+
+  <!-- LOBBY SCREEN -->
+  <div class="screen" id="screen-lobby">
+    <div class="panel">
+      <div class="room-code-display">
+        <div class="lbl">Room code — share this with friends</div>
+        <div class="code-big" id="lobbyCode">----</div>
+        <div class="copy-hint" id="copyCode">Copy code</div>
+      </div>
+
+      <div id="lobbyPlayers"></div>
+
+      <div id="lobbyHostControls" class="row-gap hidden" style="margin-top:16px;">
+        <button class="btn btn-primary" id="btnStart" disabled>Start game</button>
+      </div>
+      <div class="waiting-note" id="lobbyWaitNote">Waiting for the host to start<span class="dotflash">…</span></div>
+
+      <button class="btn btn-ghost" id="btnLeaveLobby" style="margin-top:14px;">Leave room</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen screen-game" id="screen-game">
+    <div class="topbar">
+      <div class="code-pill" id="gameCode">----</div>
+      <button class="leave-link" id="btnLeaveGame">Leave game</button>
+    </div>
+
+    <div class="turn-banner" id="turnBanner">—</div>
+    <div class="players-strip" id="playersStrip"></div>
+    <div class="board" id="board"></div>
+  </div>
+
+  <!-- GAME OVER SCREEN -->
+  <div class="screen" id="screen-over">
+    <div class="panel" style="text-align:center;">
+      <div class="winner-orb" id="winnerOrb"></div>
+      <div class="win-title" id="winTitle">—</div>
+      <div class="win-sub">The reaction has settled.</div>
+      <div class="row-gap">
+        <button class="btn btn-primary hidden" id="btnPlayAgain">Play again</button>
+        <button class="btn btn-ghost" id="btnBackHome">Back to home</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
