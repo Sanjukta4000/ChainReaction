@@ -222,9 +222,7 @@ const FIREBASE_CONFIG = {
       // freshly-loaded tab runs the transaction below against an empty local
       // cache (before its connection to Firebase is fully established) and
       // wrongly concludes the room doesn't exist.
-      console.log('[join debug] looking up path:', 'rooms/' + code, '| databaseURL:', FIREBASE_CONFIG.databaseURL);
       const precheck = await roomRef(code).once('value');
-      console.log('[join debug] exists:', precheck.exists(), '| value:', precheck.val());
       if (!precheck.exists()) {
         setError('No room found with that code.');
         return;
@@ -417,12 +415,12 @@ const FIREBASE_CONFIG = {
     const cap = cellCapacity(r, c);
     const cp = currentPlayer();
     const clickable = room.started && !room.winnerId && cp && cp.id === myId &&
-      (cellData.owner === null || cellData.owner === myId) && !animating;
+      (cellData.owner == null || cellData.owner === myId) && !animating;
     el.classList.toggle('clickable', !!clickable);
 
-    const isDanger = cellData.count === cap - 1 && cellData.owner !== null;
+    const isDanger = cellData.count === cap - 1 && cellData.owner != null;
     el.classList.toggle('danger', isDanger);
-    if (cellData.owner !== null && room.players[cellData.owner]) {
+    if (cellData.owner != null && room.players[cellData.owner]) {
       const col = COLORS[room.players[cellData.owner].colorIdx || 0];
       el.style.setProperty('--cell-glow', col.hex + '99');
     }
@@ -453,19 +451,13 @@ const FIREBASE_CONFIG = {
 
   // ---------- move handling ----------
   async function onCellClick(e) {
-    console.log('[cell click] fired', e.currentTarget.dataset.r, e.currentTarget.dataset.c,
-      '| animating:', animating, '| room:', !!room, '| started:', room && room.started,
-      '| winnerId:', room && room.winnerId, '| myId:', myId);
-    if (animating || !room || !room.started || room.winnerId) { console.log('[cell click] blocked at guard 1'); return; }
+    if (animating || !room || !room.started || room.winnerId) return;
     const r = parseInt(e.currentTarget.dataset.r, 10);
     const c = parseInt(e.currentTarget.dataset.c, 10);
     const cp = currentPlayer();
-    console.log('[cell click] currentPlayer:', cp);
-    if (!cp || cp.id !== myId) { console.log('[cell click] blocked at guard 2 — not my turn'); return; }
+    if (!cp || cp.id !== myId) return;
     const cellData = room.board[r][c];
-    console.log('[cell click] cellData:', cellData);
-    if (!(cellData.owner === null || cellData.owner === myId)) { console.log('[cell click] blocked at guard 3 — occupied by someone else'); return; }
-    console.log('[cell click] passed all guards, placing orb');
+    if (!(cellData.owner == null || cellData.owner === myId)) return;
 
     animating = true;
 
@@ -520,7 +512,7 @@ const FIREBASE_CONFIG = {
         const cpId = order[room2.currentPlayerIndex];
         if (cpId !== myId) return; // not my turn (stale) -- abort, listener will resync
         const cd = room2.board[r][c];
-        if (!(cd.owner === null || cd.owner === myId)) return;
+        if (!(cd.owner == null || cd.owner === myId)) return;
 
         let b = room2.board;
         b[r][c].count++;
