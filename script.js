@@ -453,13 +453,19 @@ const FIREBASE_CONFIG = {
 
   // ---------- move handling ----------
   async function onCellClick(e) {
-    if (animating || !room || !room.started || room.winnerId) return;
+    console.log('[cell click] fired', e.currentTarget.dataset.r, e.currentTarget.dataset.c,
+      '| animating:', animating, '| room:', !!room, '| started:', room && room.started,
+      '| winnerId:', room && room.winnerId, '| myId:', myId);
+    if (animating || !room || !room.started || room.winnerId) { console.log('[cell click] blocked at guard 1'); return; }
     const r = parseInt(e.currentTarget.dataset.r, 10);
     const c = parseInt(e.currentTarget.dataset.c, 10);
     const cp = currentPlayer();
-    if (!cp || cp.id !== myId) return;
+    console.log('[cell click] currentPlayer:', cp);
+    if (!cp || cp.id !== myId) { console.log('[cell click] blocked at guard 2 — not my turn'); return; }
     const cellData = room.board[r][c];
-    if (!(cellData.owner === null || cellData.owner === myId)) return;
+    console.log('[cell click] cellData:', cellData);
+    if (!(cellData.owner === null || cellData.owner === myId)) { console.log('[cell click] blocked at guard 3 — occupied by someone else'); return; }
+    console.log('[cell click] passed all guards, placing orb');
 
     animating = true;
 
