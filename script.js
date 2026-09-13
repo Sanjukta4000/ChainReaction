@@ -446,7 +446,7 @@ const FIREBASE_CONFIG = {
     ring.className = 'burst-ring';
     ring.style.setProperty('--bc', hex);
     el.appendChild(ring);
-    setTimeout(() => ring.remove(), 520);
+    setTimeout(() => ring.remove(), 450);
   }
 
   // ---------- move handling ----------
@@ -460,52 +460,51 @@ const FIREBASE_CONFIG = {
     if (!(cellData.owner == null || cellData.owner === myId)) return;
 
     animating = true;
-
-    // local optimistic animation for instant feedback
-    let board = deepCloneBoard(room.board);
-    board[r][c].count++;
-    board[r][c].owner = myId;
-    renderCell(r, c, board[r][c]);
-
-    let queue = [{ r, c }];
-    let safety = 0;
-    while (queue.length && safety < 400) {
-      safety++;
-      const seen = new Set();
-      const toExplode = [];
-      queue.forEach((cell) => {
-        const key = cell.r + '-' + cell.c;
-        if (seen.has(key)) return; seen.add(key);
-        if (board[cell.r][cell.c].count >= cellCapacity(cell.r, cell.c)) toExplode.push(cell);
-      });
-      if (toExplode.length === 0) break;
-
-      const myCol = COLORS[cp.colorIdx];
-      toExplode.forEach((cell) => burstAt(cell.r, cell.c, myCol.hex));
-
-      const nextSeen = new Set();
-      const nextQueue = [];
-      toExplode.forEach((cell) => {
-        const cap = cellCapacity(cell.r, cell.c);
-        board[cell.r][cell.c].count -= cap;
-        if (board[cell.r][cell.c].count <= 0) { board[cell.r][cell.c].count = 0; board[cell.r][cell.c].owner = null; }
-        neighbors(cell.r, cell.c).forEach(([nr, nc]) => {
-          board[nr][nc].count++;
-          board[nr][nc].owner = myId;
-          const key = nr + '-' + nc;
-          if (!nextSeen.has(key)) { nextSeen.add(key); nextQueue.push({ r: nr, c: nc }); }
-        });
-      });
-
-      toExplode.forEach((cell) => renderCell(cell.r, cell.c, board[cell.r][cell.c]));
-      nextQueue.forEach((cell) => renderCell(cell.r, cell.c, board[cell.r][cell.c]));
-      await sleep(230);
-      queue = nextQueue;
-    }
-
-    // authoritative recomputation happens inside a Firebase transaction,
-    // so simultaneous/late submissions from a stale client are safely rejected.
     try {
+      // local optimistic animation for instant feedback
+      let board = deepCloneBoard(room.board);
+      board[r][c].count++;
+      board[r][c].owner = myId;
+      renderCell(r, c, board[r][c]);
+
+      let queue = [{ r, c }];
+      let safety = 0;
+      while (queue.length && safety < 400) {
+        safety++;
+        const seen = new Set();
+        const toExplode = [];
+        queue.forEach((cell) => {
+          const key = cell.r + '-' + cell.c;
+          if (seen.has(key)) return; seen.add(key);
+          if (board[cell.r][cell.c].count >= cellCapacity(cell.r, cell.c)) toExplode.push(cell);
+        });
+        if (toExplode.length === 0) break;
+
+        const myCol = COLORS[cp.colorIdx];
+        toExplode.forEach((cell) => burstAt(cell.r, cell.c, myCol.hex));
+
+        const nextSeen = new Set();
+        const nextQueue = [];
+        toExplode.forEach((cell) => {
+          const cap = cellCapacity(cell.r, cell.c);
+          board[cell.r][cell.c].count -= cap;
+          if (board[cell.r][cell.c].count <= 0) { board[cell.r][cell.c].count = 0; board[cell.r][cell.c].owner = null; }
+          neighbors(cell.r, cell.c).forEach(([nr, nc]) => {
+            board[nr][nc].count++;
+            board[nr][nc].owner = myId;
+            const key = nr + '-' + nc;
+            if (!nextSeen.has(key)) { nextSeen.add(key); nextQueue.push({ r: nr, c: nc }); }
+          });
+        });
+
+        toExplode.forEach((cell) => renderCell(cell.r, cell.c, board[cell.r][cell.c]));
+        nextQueue.forEach((cell) => renderCell(cell.r, cell.c, board[cell.r][cell.c]));
+        await sleep(110);
+        queue = nextQueue;
+      }
+
+      // authoritative recomputation happens inside a Firebase transaction,
+      // so simultaneous/late submissions from a stale client are safely rejected.
       await roomRef(roomCode).transaction((room2) => {
         if (!room2 || !room2.started || room2.winnerId) return;
         const order = room2.turnOrder || [];
@@ -547,36 +546,38 @@ const FIREBASE_CONFIG = {
         }
 
         room2.players[myId].movesMade = (room2.players[myId].movesMade || 0) + 1;
-        if (!room2.firstRoundDone && order.every((id) => room2.players[id].movesMade >= 1)) room2.firstRoundDone = true;
+        if (!room2.firstRoundDone && order.every((id) => (room2.players[id]?.movesMade || 0) >= 1)) room2.firstRoundDone = true;
 
         if (room2.firstRoundDone) {
           order.forEach((id) => {
             const p = room2.players[id];
-            if (!p.alive) return;
+            if (!p || p.alive === false) return;
             const hasOrbs = b.some((row) => row.some((cell) => cell.owner === id));
             if (!hasOrbs) p.alive = false;
           });
         }
 
-        const alive = order.filter((id) => room2.players[id].alive);
+        const alive = order.filter((id) => room2.players[id] && room2.players[id].alive !== false);
         if (alive.length === 1 && room2.firstRoundDone) {
           room2.winnerId = alive[0];
-        } else {
+        } else if (alive.length > 0) {
           let next = room2.currentPlayerIndex;
           for (let i = 0; i < order.length; i++) {
             next = (next + 1) % order.length;
-            if (room2.players[order[next]].alive) { room2.currentPlayerIndex = next; break; }
+            if (room2.players[order[next]] && room2.players[order[next]].alive !== false) { room2.currentPlayerIndex = next; break; }
           }
         }
         room2.board = b;
         return room2;
       });
     } catch (e) {
-      console.error(e);
-      showToast('Move failed to sync — reconnecting…');
+      console.error('[move error]', e);
+      showToast('Move failed to sync — please try again.');
+    } finally {
+      // Guaranteed to run no matter what happens above, so a single glitch
+      // can never permanently lock the board.
+      animating = false;
     }
-
-    animating = false;
   }
 
   // ---------- game over ----------
